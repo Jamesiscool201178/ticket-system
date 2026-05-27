@@ -4,6 +4,6 @@ services:
     env: node
     plan: free
     branch: main
-    buildCommand: cd client && npm install && npm run build
+    buildCommand: npm install && cd client && npm install && npm run build
     startCommand: npm start
     envVars: []
