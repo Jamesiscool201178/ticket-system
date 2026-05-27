@@ -1,0 +1,142 @@
+[
+  {
+    "id": "1779843616279",
+    "title": "Polish modal test 2",
+    "description": "Testing improved feedback UI second run.",
+    "status": "claimed",
+    "createdAt": "2026-05-27T01:00:16.279Z",
+    "owner": {
+      "name": "Auto Requester",
+      "email": "requester2@example.com"
+    },
+    "staff": {
+      "name": "AutoStaff",
+      "surname": "Smith",
+      "lastName": "Jr",
+      "gmail": "autostaff@gmail.com"
+    },
+    "messages": [
+      {
+        "id": "msg-1779843616279",
+        "role": "user",
+        "author": "Auto Requester",
+        "email": "requester2@example.com",
+        "text": "Testing improved feedback UI second run.",
+        "createdAt": "2026-05-27T01:00:16.279Z"
+      },
+      {
+        "id": "msg-1779843617175",
+        "role": "system",
+        "author": "AutoStaff Smith Jr",
+        "email": "autostaff@gmail.com",
+        "text": "Ticket claimed by staff member AutoStaff Smith Jr.",
+        "createdAt": "2026-05-27T01:00:17.175Z"
+      }
+    ]
+  },
+  {
+    "id": "1779843500138",
+    "title": "Automated test ticket",
+    "description": "Please ignore — automated test.",
+    "status": "claimed",
+    "createdAt": "2026-05-27T00:58:20.138Z",
+    "owner": {
+      "name": "Auto Requester",
+      "email": "requester@example.com"
+    },
+    "staff": {
+      "name": "AutoStaff",
+      "surname": "Smith",
+      "lastName": "Jr",
+      "gmail": "autostaff@gmail.com"
+    },
+    "messages": [
+      {
+        "id": "msg-1779843500138",
+        "role": "user",
+        "author": "Auto Requester",
+        "email": "requester@example.com",
+        "text": "Please ignore — automated test.",
+        "createdAt": "2026-05-27T00:58:20.138Z"
+      },
+      {
+        "id": "msg-1779843501092",
+        "role": "system",
+        "author": "AutoStaff Smith Jr",
+        "email": "autostaff@gmail.com",
+        "text": "Ticket claimed by staff member AutoStaff Smith Jr.",
+        "createdAt": "2026-05-27T00:58:21.092Z"
+      }
+    ]
+  },
+  {
+    "id": "1779843093755",
+    "title": "test",
+    "description": "test",
+    "status": "claimed",
+    "createdAt": "2026-05-27T00:51:33.755Z",
+    "owner": {
+      "name": "James Stphn",
+      "email": "James888@gmail.com"
+    },
+    "staff": {
+      "name": "James",
+      "surname": "Stephen",
+      "lastName": "Hollerbach",
+      "gmail": "Jameshuby748@gmail.com"
+    },
+    "messages": [
+      {
+        "id": "msg-1779843093755",
+        "role": "user",
+        "author": "James Stphn",
+        "email": "James888@gmail.com",
+        "text": "test",
+        "createdAt": "2026-05-27T00:51:33.755Z"
+      },
+      {
+        "id": "msg-1779843154594",
+        "role": "system",
+        "author": "James Stephen Hollerbach",
+        "email": "Jameshuby748@gmail.com",
+        "text": "Ticket claimed by staff member James Stephen Hollerbach.",
+        "createdAt": "2026-05-27T00:52:34.594Z"
+      }
+    ]
+  },
+  {
+    "id": "1779842428069",
+    "title": "This is a test.",
+    "description": "Just a test.",
+    "status": "claimed",
+    "createdAt": "2026-05-27T00:40:28.069Z",
+    "owner": {
+      "name": "James Stephen Hollerbach",
+      "email": "Jameshuby748@gmail.com"
+    },
+    "staff": {
+      "name": "James",
+      "surname": "Stephen",
+      "lastName": "Hollerbach",
+      "gmail": "Jameshuby748@gmail.com"
+    },
+    "messages": [
+      {
+        "id": "msg-1779842428069",
+        "role": "user",
+        "author": "James Stephen Hollerbach",
+        "email": "Jameshuby748@gmail.com",
+        "text": "Just a test.",
+        "createdAt": "2026-05-27T00:40:28.069Z"
+      },
+      {
+        "id": "msg-1779843196632",
+        "role": "system",
+        "author": "James Stephen Hollerbach",
+        "email": "Jameshuby748@gmail.com",
+        "text": "Ticket claimed by staff member James Stephen Hollerbach.",
+        "createdAt": "2026-05-27T00:53:16.632Z"
+      }
+    ]
+  }
+]

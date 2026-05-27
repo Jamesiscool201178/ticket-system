@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: ticket-system
+    env: node
+    plan: free
+    branch: main
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars: []
