@@ -7,11 +7,16 @@ function App() {
     requesterName: '',
     requesterEmail: '',
     title: '',
-    description: ''
+    description: '',
+    category: 'General',
+    priority: 'Normal',
+    attachments: []
   });
+  const [attachmentName, setAttachmentName] = useState('');
   const [currentTicket, setCurrentTicket] = useState(null);
-  const [staffLogin, setStaffLogin] = useState({ name: '', surname: '', lastName: '', gmail: '', password: '' });
+  const [staffLogin, setStaffLogin] = useState({ username: 'staff', password: '', name: '', surname: '', lastName: '', gmail: '' });
   const [staffSession, setStaffSession] = useState({ name: '', surname: '', lastName: '', gmail: '' });
+  const [staffToken, setStaffToken] = useState('');
   const [isStaff, setIsStaff] = useState(false);
   const [claimForms, setClaimForms] = useState({});
   const [messageForms, setMessageForms] = useState({});
@@ -24,15 +29,29 @@ function App() {
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [feedbackSuccessMessage, setFeedbackSuccessMessage] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [assignedFilter, setAssignedFilter] = useState('all');
 
   useEffect(() => {
-    if (!isStaff || !staffSession.gmail) {
+    if (!isStaff || !staffToken) {
       setTickets([]);
       return;
     }
 
     setError('');
-    fetch(`/api/tickets?staffEmail=${encodeURIComponent(staffSession.gmail)}`)
+    const params = new URLSearchParams();
+    if (searchQuery) params.append('q', searchQuery);
+    if (statusFilter) params.append('status', statusFilter);
+    if (categoryFilter) params.append('category', categoryFilter);
+    if (priorityFilter) params.append('priority', priorityFilter);
+    if (assignedFilter === 'me') params.append('assigned', 'me');
+
+    fetch(`/api/tickets?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${staffToken}` }
+    })
       .then(async (res) => {
         if (!res.ok) {
           const body = await res.json();
@@ -42,7 +61,7 @@ function App() {
       })
       .then(setTickets)
       .catch((err) => setError(`Unable to load tickets: ${err.message || err}`));
-  }, [isStaff, staffSession.gmail]);
+  }, [isStaff, staffToken, searchQuery, statusFilter, categoryFilter, priorityFilter, assignedFilter]);
 
   const updateForm = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -109,7 +128,8 @@ function App() {
       if (isStaff) {
         setTickets((prev) => [ticket, ...prev]);
       }
-      setForm({ requesterName: '', requesterEmail: '', title: '', description: '' });
+      setForm({ requesterName: '', requesterEmail: '', title: '', description: '', category: 'General', priority: 'Normal', attachments: [] });
+      setAttachmentName('');
     } catch (err) {
       setError(err.message || 'Unable to create ticket.');
     } finally {
@@ -121,24 +141,37 @@ function App() {
     event.preventDefault();
     setError('');
 
-    if (!staffLogin.name.trim() || !staffLogin.surname.trim() || !staffLogin.lastName.trim() || !staffLogin.gmail.trim() || !staffLogin.password) {
+    if (!staffLogin.username.trim() || !staffLogin.password.trim() || !staffLogin.name.trim() || !staffLogin.surname.trim() || !staffLogin.lastName.trim() || !staffLogin.gmail.trim()) {
       setError('Please fill in all staff fields and password.');
       return;
     }
 
-    // Simple client-side password check
-    if (staffLogin.password !== 'admins2012.') {
-      setError('Incorrect staff password.');
-      return;
-    }
+    try {
+      const response = await fetch('/api/staff/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(staffLogin)
+      });
 
-    setStaffSession({ name: staffLogin.name, surname: staffLogin.surname, lastName: staffLogin.lastName, gmail: staffLogin.gmail });
-    setIsStaff(true);
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || 'Staff login failed.');
+      }
+
+      const data = await response.json();
+      setStaffSession(data.staff);
+      setStaffToken(data.token);
+      setIsStaff(true);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Unable to login as staff.');
+    }
   }
 
   function handleStaffSignOut() {
     setIsStaff(false);
     setStaffSession({ name: '', surname: '', lastName: '', gmail: '' });
+    setStaffToken('');
     setTickets([]);
     setClaimForms({});
     setMessageForms({});
@@ -156,7 +189,7 @@ function App() {
     try {
       const response = await fetch(`/api/tickets/${ticketId}/claim`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${staffToken}` },
         body: JSON.stringify(claim)
       });
 
@@ -170,6 +203,31 @@ function App() {
       setClaimForms((prev) => ({ ...prev, [ticketId]: {} }));
     } catch (err) {
       setError(err.message || 'Unable to claim ticket.');
+    }
+  }
+
+  async function handleStatusChange(ticketId, status) {
+    if (!staffToken) {
+      setError('Please sign in as staff to update ticket status.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/tickets/${ticketId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${staffToken}` },
+        body: JSON.stringify({ status })
+      });
+
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || 'Failed to update status');
+      }
+
+      const updatedTicket = await response.json();
+      updateTicket(updatedTicket);
+    } catch (err) {
+      setError(err.message || 'Unable to update ticket status.');
     }
   }
 
@@ -201,51 +259,25 @@ function App() {
     setIsSubmittingFeedback(true);
 
     try {
-      // send feedback first
-      const fbResp = await fetch('/api/feedback', {
+      const fbResp = await fetch(`/api/tickets/${feedbackModalTicketId}/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticketId: feedbackModalTicketId, rating: feedbackRating, comment: feedbackComment, staff: staffSession })
+        body: JSON.stringify({ ticketId: feedbackModalTicketId, rating: feedbackRating, comment: feedbackComment, staff: `${staffSession.name} ${staffSession.surname}` })
       });
 
       if (!fbResp.ok) {
-        const txt = await fbResp.text();
-        // If server returned HTML (e.g., an error page), include helpful hint
-        if (txt && txt.trim().startsWith('<')) {
-          throw new Error('Server returned HTML — check that the backend is running and /api/feedback is available.');
-        }
-        try {
-          const body = txt ? JSON.parse(txt) : {};
-          throw new Error(body.error || 'Failed to submit feedback');
-        } catch (_e) {
-          throw new Error(txt || 'Failed to submit feedback');
-        }
+        const body = await fbResp.json();
+        throw new Error(body.error || 'Failed to submit feedback');
       }
 
-      // then delete the ticket (include headers for compatibility)
       const delResp = await fetch(`/api/tickets/${feedbackModalTicketId}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Staff-Name': staffSession.name,
-          'X-Staff-Surname': staffSession.surname,
-          'X-Staff-LastName': staffSession.lastName,
-          'X-Staff-Gmail': staffSession.gmail
-        },
-        body: JSON.stringify(staffSession)
+        headers: { Authorization: `Bearer ${staffToken}` }
       });
 
       if (!delResp.ok) {
-        const txt = await delResp.text();
-        if (txt && txt.trim().startsWith('<')) {
-          throw new Error('Server returned HTML on delete — check that the backend is running.');
-        }
-        try {
-          const body = txt ? JSON.parse(txt) : {};
-          throw new Error(body.error || 'Failed to delete ticket');
-        } catch (_e) {
-          throw new Error(txt || 'Failed to delete ticket');
-        }
+        const body = await delResp.json();
+        throw new Error(body.error || 'Failed to delete ticket');
       }
 
       setTickets((prev) => prev.filter((ticket) => ticket.id !== feedbackModalTicketId));
@@ -254,7 +286,6 @@ function App() {
       }
       setFeedbackSubmitted(true);
       setFeedbackSuccessMessage('Thanks — your feedback has been recorded.');
-      // keep modal open to show success and link; clear ticket id so Submit cannot be re-triggered
       setFeedbackModalTicketId(null);
     } catch (err) {
       setFeedbackError(err.message || 'Unable to submit feedback or delete ticket.');
@@ -281,7 +312,10 @@ function App() {
     try {
       const response = await fetch(`/api/tickets/${ticketId}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(message.role === 'staff' ? { Authorization: `Bearer ${staffToken}` } : {})
+        },
         body: JSON.stringify(message)
       });
 
@@ -306,6 +340,22 @@ function App() {
       setError(err.message || 'Unable to send message.');
     }
   }
+
+  const handleAttachment = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = reader.result;
+      setForm((prev) => ({
+        ...prev,
+        attachments: [{ name: file.name, content }]
+      }));
+      setAttachmentName(file.name);
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <div className="page-shell">
@@ -345,6 +395,31 @@ function App() {
           </label>
 
           <label>
+            Ticket category
+            <select value={form.category} onChange={(e) => updateForm('category', e.target.value)}>
+              <option value="General">General</option>
+              <option value="Bug">Bug</option>
+              <option value="Feature Request">Feature Request</option>
+              <option value="Support">Support</option>
+            </select>
+          </label>
+
+          <label>
+            Ticket priority
+            <select value={form.priority} onChange={(e) => updateForm('priority', e.target.value)}>
+              <option value="Normal">Normal</option>
+              <option value="High">High</option>
+              <option value="Urgent">Urgent</option>
+            </select>
+          </label>
+
+          <label>
+            Attach a file (optional)
+            <input type="file" onChange={handleAttachment} />
+            {attachmentName && <small>Attached: {attachmentName}</small>}
+          </label>
+
+          <label>
             Ticket description
             <textarea
               value={form.description}
@@ -375,12 +450,30 @@ function App() {
         ) : (
           <form onSubmit={handleStaffSignIn} className="ticket-form staff-signin">
             <label>
-              Staff name
+              Staff username
+              <input
+                type="text"
+                value={staffLogin.username}
+                onChange={(e) => updateStaffLogin('username', e.target.value)}
+                placeholder="staff"
+              />
+            </label>
+            <label>
+              Staff password
+              <input
+                type="password"
+                value={staffLogin.password}
+                onChange={(e) => updateStaffLogin('password', e.target.value)}
+                placeholder="Password"
+              />
+            </label>
+            <label>
+              Staff first name
               <input
                 type="text"
                 value={staffLogin.name}
                 onChange={(e) => updateStaffLogin('name', e.target.value)}
-                placeholder="Name"
+                placeholder="First name"
               />
             </label>
             <label>
@@ -410,15 +503,6 @@ function App() {
                 placeholder="staff@gmail.com"
               />
             </label>
-            <label>
-              Staff password
-              <input
-                type="password"
-                value={staffLogin.password}
-                onChange={(e) => updateStaffLogin('password', e.target.value)}
-                placeholder="Password"
-              />
-            </label>
             <button type="submit">Enter Staff View</button>
           </form>
         )}
@@ -427,8 +511,50 @@ function App() {
       {isStaff ? (
         <div className="card">
           <h2>Tickets</h2>
+          <div className="filter-row">
+            <label>
+              Search
+              <input type="search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search tickets" />
+            </label>
+            <label>
+              Status
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="">All</option>
+                <option value="open">Open</option>
+                <option value="in progress">In Progress</option>
+                <option value="waiting">Waiting</option>
+                <option value="resolved">Resolved</option>
+              </select>
+            </label>
+            <label>
+              Category
+              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                <option value="">All</option>
+                <option value="General">General</option>
+                <option value="Bug">Bug</option>
+                <option value="Feature Request">Feature Request</option>
+                <option value="Support">Support</option>
+              </select>
+            </label>
+            <label>
+              Priority
+              <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
+                <option value="">All</option>
+                <option value="Normal">Normal</option>
+                <option value="High">High</option>
+                <option value="Urgent">Urgent</option>
+              </select>
+            </label>
+            <label>
+              Assigned
+              <select value={assignedFilter} onChange={(e) => setAssignedFilter(e.target.value)}>
+                <option value="all">All</option>
+                <option value="me">Assigned to me</option>
+              </select>
+            </label>
+          </div>
           {tickets.length === 0 ? (
-            <p>No tickets yet. Create the first one.</p>
+            <p>No tickets match your filters.</p>
           ) : (
             <div className="ticket-list">
               {tickets.map((ticket) => {
@@ -446,21 +572,42 @@ function App() {
                         <h3>{ticket.title}</h3>
                         <p className="ticket-owner">Created by {ticket.owner.name} ({ticket.owner.email})</p>
                       </div>
-                      <span className={`ticket-status ticket-status-${ticket.status}`}>
-                        {ticket.status}
-                      </span>
+                      <div className="ticket-status-group">
+                        <span className={`ticket-status ticket-status-${ticket.status.replace(/\s+/g, '-')}`}>
+                          {ticket.status}
+                        </span>
+                        <span className="ticket-chip">{ticket.category || 'General'}</span>
+                        <span className="ticket-chip ticket-chip-priority">{ticket.priority || 'Normal'}</span>
+                      </div>
                     </div>
 
                     <p>{ticket.description}</p>
-                    <div className="ticket-meta">
+                    <div className="ticket-meta ticket-meta-grid">
                       <span>{new Date(ticket.createdAt).toLocaleString()}</span>
-                      {ticket.staff ? (
-                        <span>Claimed by {ticket.staff.name} {ticket.staff.surname} {ticket.staff.lastName}</span>
-                      ) : (
-                        <span>Not claimed yet</span>
-                      )}
+                      <span>{ticket.staff ? `Claimed by ${ticket.staff.name} ${ticket.staff.surname}` : 'Not claimed yet'}</span>
                     </div>
-
+                    {ticket.attachments?.length ? (
+                      <div className="ticket-attachments">
+                        <strong>Attachments:</strong>
+                        <ul>
+                          {ticket.attachments.map((attachment) => (
+                            <li key={attachment.name}>{attachment.name}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {ticket.events?.length ? (
+                      <div className="ticket-events">
+                        <strong>History:</strong>
+                        <ul>
+                          {ticket.events.map((event) => (
+                            <li key={event.id}>
+                              <strong>{event.type}</strong> — {event.message} <span>{new Date(event.createdAt).toLocaleString()}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                     {ticket.staff ? (
                       <div className="ticket-claimed">
                         <strong>Staff:</strong> {ticket.staff.name} {ticket.staff.surname} {ticket.staff.lastName} ({ticket.staff.gmail})
@@ -572,6 +719,13 @@ function App() {
                           <button type="button" className="delete-button" onClick={() => handleDelete(ticket.id)}>
                             Delete Ticket
                           </button>
+                        )}
+                        {ticket.staff?.gmail === staffSession.gmail && (
+                          <select value={ticket.status} onChange={(e) => handleStatusChange(ticket.id, e.target.value)}>
+                            <option value="in progress">In Progress</option>
+                            <option value="waiting">Waiting</option>
+                            <option value="resolved">Resolved</option>
+                          </select>
                         )}
                       </div>
                     </div>
